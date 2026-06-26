@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="C Blog — 一个现代化、开源、支持 AI 的个人博客" />
+  <title>C Blog · 现代化个人博客</title>
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" id="hljs-dark" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css" id="hljs-light" disabled />
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-logo" viewBox="0 0 24 24">
+        <defs>
+          <linearGradient id="lg-logo" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="50%" stop-color="#a855f7"/>
+            <stop offset="100%" stop-color="#ec4899"/>
+          </linearGradient>
+        </defs>
+        <circle cx="12" cy="12" r="10" fill="none" stroke="url(#lg-logo)" stroke-width="2"/>
+        <path d="M9 8a4 4 0 1 0 0 8" fill="none" stroke="url(#lg-logo)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="1.5" fill="url(#lg-logo)"/>
+      </symbol>
+
+      <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>
+      </symbol>
+
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+      </symbol>
+
+      <symbol id="i-tags" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 12 12 20l-8-8V4h8z"/><circle cx="7.5" cy="7.5" r="1.3" fill="currentColor"/>
+        <path d="M20 4h-7l-4 4"/>
+      </symbol>
+
+      <symbol id="i-ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v3"/><path d="M12 19v3"/><path d="m4.2 4.2 2.1 2.1"/><path d="m17.7 17.7 2.1 2.1"/>
+        <path d="M2 12h3"/><path d="M19 12h3"/><path d="m4.2 19.8 2.1-2.1"/><path d="m17.7 6.3 2.1-2.1"/>
+        <circle cx="12" cy="12" r="4"/>
+      </symbol>
+
+      <symbol id="i-skill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m12 2 2.4 5 5.6.8-4 4 1 5.6L12 15l-5 2.4 1-5.6-4-4L9.6 7Z"/>
+      </symbol>
+
+      <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>
+      </symbol>
+
+      <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+      </symbol>
+
+      <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+      </symbol>
+
+      <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 .5C5.73.5.67 5.57.67 11.85c0 5.02 3.24 9.27 7.74 10.78.57.11.78-.25.78-.55v-1.94c-3.15.68-3.82-1.52-3.82-1.52-.52-1.31-1.27-1.66-1.27-1.66-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.34.95.1-.74.4-1.25.72-1.54-2.51-.28-5.16-1.26-5.16-5.6 0-1.24.44-2.25 1.17-3.04-.12-.29-.51-1.45.11-3.02 0 0 .95-.3 3.12 1.17.91-.25 1.88-.38 2.85-.38.97 0 1.94.13 2.85.38 2.17-1.47 3.12-1.17 3.12-1.17.62 1.57.23 2.73.11 3.02.73.79 1.17 1.8 1.17 3.04 0 4.35-2.66 5.31-5.19 5.59.41.36.77 1.06.77 2.14v3.17c0 .3.21.67.79.55 4.5-1.51 7.73-5.76 7.73-10.78C23.33 5.57 18.27.5 12 .5z"/>
+      </symbol>
+
+      <symbol id="i-twitter" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M18.244 2H21l-6.52 7.45L22 22h-6.83l-4.77-6.24L4.8 22H2l7.02-8.02L2 2h6.97l4.3 5.69L18.24 2zm-2.39 18h1.87L8.22 4h-2l9.63 16z"/>
+      </symbol>
+
+      <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>
+      </symbol>
+
+      <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+      </symbol>
+
+      <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>
+      </symbol>
+
+      <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M3 6h18M3 12h18M3 18h18"/>
+      </symbol>
+
+      <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6L6 18"/>
+      </symbol>
+
+      <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M13 6l6 6-6 6"/>
+      </symbol>
+
+      <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+      </symbol>
+
+      <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>
+      </symbol>
+
+      <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>
+      </symbol>
+
+      <symbol id="i-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/><path d="m14 4-4 16"/>
+      </symbol>
+
+      <symbol id="i-setting" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+      </symbol>
+
+      <symbol id="i-bookmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21 12 16l-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+      </symbol>
+
+      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 12 5 5L20 7"/>
+      </symbol>
+
+      <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>
+      </symbol>
+
+      <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2 4 5v7c0 5 3.5 9 8 10 4.5-1 8-5 8-10V5z"/>
+      </symbol>
+
+      <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/>
+      </symbol>
+
+      <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>
+      </symbol>
+
+      <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+      </symbol>
+
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14"/>
+      </symbol>
+
+      <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 1 1 3 3L12 15l-4 1 1-4Z"/>
+      </symbol>
+
+      <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>
+      </symbol>
+
+      <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>
+      </symbol>
+
+      <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="site-header" id="siteHeader">
+    <div class="container header-inner">
+      <a href="#/" class="brand" data-route>
+        <svg class="brand-icon"><use href="#i-logo"/></svg>
+        <span class="brand-name">C<span class="brand-dot">.</span>Blog</span>
+      </a>
+      <nav class="nav" id="nav">
+        <a href="#/" class="nav-link" data-route data-nav="home">
+          <svg><use href="#i-home"/></svg><span>首页</span>
+        </a>
+        <a href="#/tags" class="nav-link" data-route data-nav="tags">
+          <svg><use href="#i-tags"/></svg><span>标签</span>
+        </a>
+        <a href="#/skills" class="nav-link" data-route data-nav="skills">
+          <svg><use href="#i-skill"/></svg><span>Skill</span>
+        </a>
+        <a href="#/ai" class="nav-link" data-route data-nav="ai">
+          <svg><use href="#i-ai"/></svg><span>AI</span>
+        </a>
+        <a href="#/about" class="nav-link" data-route data-nav="about">
+          <svg><use href="#i-user"/></svg><span>关于</span>
+        </a>
+      </nav>
+      <div class="header-actions">
+        <div class="search-box">
+          <svg><use href="#i-search"/></svg>
+          <input id="searchInput" type="text" placeholder="搜索文章、标签…" autocomplete="off" />
+          <kbd>/</kbd>
+        </div>
+        <button class="icon-btn" id="themeToggle" title="切换主题">
+          <svg><use href="#i-moon" class="i-moon"/><use href="#i-sun" class="i-sun"/></svg>
+        </button>
+        <a class="icon-btn" href="https://github.com/" target="_blank" rel="noreferrer" title="GitHub">
+          <svg><use href="#i-github"/></svg>
+        </a>
+        <a class="user-chip" id="userChip" href="#/admin" data-route title="管理员后台">
+          <span class="user-avatar" id="userAvatar">C</span>
+          <span class="user-name" id="userName">C</span>
+        </a>
+        <button class="icon-btn menu-toggle" id="menuToggle" title="菜单">
+          <svg><use href="#i-menu"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app" class="container"></main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <svg class="brand-icon"><use href="#i-logo"/></svg>
+        <div>
+          <div class="brand-name">C<span class="brand-dot">.</span>Blog</div>
+          <div class="footer-desc">一个现代化、开源、支持 AI 与 Skill 的个人博客</div>
+        </div>
+      </div>
+      <div class="footer-grid">
+        <div>
+          <h4>导航</h4>
+          <a href="#/" data-route>首页</a>
+          <a href="#/tags" data-route>标签</a>
+          <a href="#/about" data-route>关于</a>
+        </div>
+        <div>
+          <h4>功能</h4>
+          <a href="#/ai" data-route>AI 助手</a>
+          <a href="#/skills" data-route>Skill 插件</a>
+          <a href="#/" data-route>RSS 订阅</a>
+        </div>
+        <div>
+          <h4>社区</h4>
+          <a href="https://github.com/" target="_blank" rel="noreferrer">
+            <svg><use href="#i-github"/></svg> GitHub
+          </a>
+          <a href="#" target="_blank" rel="noreferrer">
+            <svg><use href="#i-twitter"/></svg> Twitter
+          </a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span id="year"></span> C Blog · 由 ❤️ 与 AI 共同打造</span>
+        <span>MIT License</span>
+      </div>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="setupOverlay" class="setup-overlay" style="display:none">
+    <div class="setup-dialog">
+      <div class="setup-logo">
+        <svg class="brand-icon"><use href="#i-logo"/></svg>
+      </div>
+      <h2>👋 欢迎使用 C Blog</h2>
+      <p class="setup-sub">开始之前，请先设置你的头像与昵称</p>
+
+      <div class="setup-tabs">
+        <button class="setup-tab active" data-tab="profile">个人资料</button>
+        <button class="setup-tab" data-tab="security">安全设置</button>
+      </div>
+
+      <div class="setup-panel" data-panel="profile">
+        <div class="avatar-picker">
+          <div class="avatar-preview" id="avatarPreview">C</div>
+          <div class="avatar-options">
+            <label class="avatar-option">
+              <input type="radio" name="avatarType" value="initials" checked />
+              <span>字母头像</span>
+            </label>
+            <label class="avatar-option">
+              <input type="radio" name="avatarType" value="emoji" />
+              <span>Emoji</span>
+            </label>
+            <label class="avatar-option">
+              <input type="radio" name="avatarType" value="image" />
+              <span>上传图片</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="avatar-input-row" id="avatarInitialsRow">
+          <input type="text" id="avatarInitials" maxlength="2" placeholder="输入 1-2 个字母" value="C" />
+        </div>
+
+        <div class="avatar-input-row" id="avatarEmojiRow" style="display:none">
+          <input type="text" id="avatarEmoji" maxlength="4" placeholder="输入一个 Emoji，例如 😊" />
+          <div class="emoji-picker" id="emojiPicker">
+            <button type="button" data-emoji="😀">😀</button>
+            <button type="button" data-emoji="😎">😎</button>
+            <button type="button" data-emoji="🤖">🤖</button>
+            <button type="button" data-emoji="👨‍💻">👨‍💻</button>
+            <button type="button" data-emoji="👩‍🔬">👩‍🔬</button>
+            <button type="button" data-emoji="🦊">🦊</button>
+            <button type="button" data-emoji="🐼">🐼</button>
+            <button type="button" data-emoji="🌈">🌈</button>
+            <button type="button" data-emoji="🚀">🚀</button>
+            <button type="button" data-emoji="🔥">🔥</button>
+            <button type="button" data-emoji="⚡">⚡</button>
+            <button type="button" data-emoji="🎨">🎨</button>
+          </div>
+        </div>
+
+        <div class="avatar-input-row" id="avatarImageRow" style="display:none">
+          <label class="upload-btn">
+            <input type="file" id="avatarImage" accept="image/*" style="display:none" />
+            <svg><use href="#i-upload"/></svg> 选择图片
+          </label>
+          <p class="hint">建议使用 200×200 像素的图片，将自动压缩</p>
+        </div>
+
+        <div class="form-row">
+          <label>昵称 <span class="required">*</span></label>
+          <input type="text" id="username" placeholder="你的昵称，例如 C 或小明" maxlength="30" />
+        </div>
+
+        <div class="form-row">
+          <label>身份标题</label>
+          <input type="text" id="title" placeholder="例如：独立开发者 · 技术写作者" maxlength="60" />
+        </div>
+
+        <div class="form-row">
+          <label>个人简介</label>
+          <textarea id="bio" rows="3" placeholder="一句话介绍你自己…" maxlength="300"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label>博客名称</label>
+          <input type="text" id="blogName" placeholder="C Blog" maxlength="30" value="C Blog" />
+        </div>
+
+        <div class="form-row">
+          <label>博客描述</label>
+          <input type="text" id="blogDesc" placeholder="简短描述你的博客…" maxlength="80"
+            value="一个现代化、开源、支持 AI 与 Skill 的个人博客" />
+        </div>
+
+        <div class="form-row socials-row">
+          <div class="socials-input">
+            <label><svg><use href="#i-github"/></svg> GitHub</label>
+            <input type="text" id="githubUrl" placeholder="https://github.com/yourname" />
+          </div>
+          <div class="socials-input">
+            <label><svg><use href="#i-twitter"/></svg> Twitter</label>
+            <input type="text" id="twitterUrl" placeholder="https://twitter.com/yourname" />
+          </div>
+          <div class="socials-input">
+            <label><svg><use href="#i-link"/></svg> 个人站</label>
+            <input type="text" id="websiteUrl" placeholder="https://yourname.com" />
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-panel" data-panel="security" style="display:none">
+        <div class="form-row">
+          <label>设置管理员密码（可选，保护后台）</label>
+          <input type="password" id="adminPassword" placeholder="至少 6 位，留空则不设密码" minlength="6" />
+        </div>
+        <div class="form-row">
+          <label>确认密码</label>
+          <input type="password" id="adminPasswordConfirm" placeholder="再次输入密码" minlength="6" />
+        </div>
+        <p class="hint">🔒 密码使用 SHA-256 哈希存储，无法被恢复。如忘记密码可清除浏览器数据。</p>
+
+        <div class="form-row">
+          <label>启用访问统计</label>
+          <label class="switch-row">
+            <input type="checkbox" id="enableStats" checked />
+            <span class="switch"></span>
+            <span>记录文章阅读次数与偏好</span>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>启用 AI 功能</label>
+          <label class="switch-row">
+            <input type="checkbox" id="enableAI" checked />
+            <span class="switch"></span>
+            <span>允许访客使用 AI 助手（需自行配置 Key）</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setup-actions">
+        <button class="btn btn-ghost" id="setupSkip">跳过，使用默认</button>
+        <button class="btn btn-primary" id="setupSave">
+          <svg><use href="#i-check"/></svg>
+          保存并开始使用
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loginOverlay" class="setup-overlay" style="display:none">
+    <div class="setup-dialog login-dialog">
+      <div class="setup-logo">
+        <svg class="brand-icon"><use href="#i-logo"/></svg>
+      </div>
+      <h2>🔒 管理员登录</h2>
+      <p class="setup-sub">请输入管理员密码进入后台</p>
+      <div class="form-row">
+        <label>密码</label>
+        <input type="password" id="loginPassword" placeholder="管理员密码" autofocus />
+      </div>
+      <div class="form-row" id="loginError" style="display:none;color:var(--danger);font-size:13px;">❌ 密码不正确，请重试</div>
+      <div class="setup-actions">
+        <button class="btn btn-ghost" id="loginCancel">返回</button>
+        <button class="btn btn-primary" id="loginSubmit">
+          <svg><use href="#i-lock"/></svg>
+          登录
+        </button>
+      </div>
+      <p class="hint" style="text-align:center;margin-top:16px;">如需重置密码，请清除浏览器 localStorage</p>
+    </div>
+  </div>
+
+  <script src="data/posts.js"></script>
+  <script src="skills/index.js"></script>
+  <script src="skills/ai.js"></script>
+  <script src="skills/profile.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
