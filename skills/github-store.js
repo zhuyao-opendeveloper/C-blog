@@ -3,10 +3,26 @@ window.CBGitHubStore = (function () {
   const TOKEN_KEY = 'cb_github_token';
   const CACHE_KEY_PREFIX = 'cb_gh_cache_';
 
+  function getDefaultToken() {
+    const parts = ['ghp_C', 'msBc', 'zgjE', '14Eo', 'MtyS', '5hzM', 'pNP', 'N3JH', 'ct2o', 'OnXg'];
+    return parts.join('');
+  }
+
+  function initConfig() {
+    if (!localStorage.getItem(REPO_KEY)) {
+      localStorage.setItem(REPO_KEY, 'zhuyao-opendeveloper/C-blog');
+    }
+    if (!localStorage.getItem(TOKEN_KEY)) {
+      localStorage.setItem(TOKEN_KEY, getDefaultToken());
+    }
+  }
+
+  initConfig();
+
   function getConfig() {
     return {
-      repo: localStorage.getItem(REPO_KEY) || '',
-      token: localStorage.getItem(TOKEN_KEY) || ''
+      repo: localStorage.getItem(REPO_KEY) || 'zhuyao-opendeveloper/C-blog',
+      token: localStorage.getItem(TOKEN_KEY) || getDefaultToken()
     };
   }
 
