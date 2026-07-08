@@ -156,8 +156,10 @@
         return renderAI(app);
       case 'about':
         return renderAbout(app);
+      case 'account':
+        return renderAccountPage(app);
       case 'admin':
-        if (state.adminAuthed || !state.profile?.passwordHash) {
+        if (state.adminAuthed || !state.profile?.passwordHash || (window.CBAccounts && window.CBAccounts.isAdmin())) {
           return renderAdmin(app, param);
         } else {
           location.hash = '#/admin-login';
@@ -175,6 +177,17 @@
   function fmtDate(d) {
     try { return new Date(d).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }); }
     catch { return d; }
+  }
+
+  function fmtRelative(ts) {
+    try {
+      const diff = Date.now() - ts;
+      if (diff < 60000) return '刚刚';
+      if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + ' 天前';
+      return new Date(ts).toLocaleDateString('zh-CN');
+    } catch { return ''; }
   }
 
   function renderHome(app) {
@@ -286,6 +299,10 @@
       ? window.CBProfile.avatarHTML(profile, 28)
       : `<span class="avatar">${postAvatar.slice(0, 2).toUpperCase()}</span>`;
 
+    const comments = window.CBComments ? window.CBComments.getByPost(id, !!state.adminAuthed) : [];
+    const pendingCount = window.CBComments ? window.CBComments.countPending() : 0;
+    const aiEnabled = !!(window.CB_AI && window.CB_AI.config.apiKey);
+
     const html = `
       <article class="post-detail">
         <header class="post-detail-header">
@@ -307,8 +324,34 @@
         </header>
         <div class="prose">${content}</div>
       </article>
+      <section class="comment-section" id="commentSection">
+        <div class="comment-header">
+          <h2><svg><use href="#i-comment"/></svg> 评论 <span class="count" id="commentCount">${comments.filter(c => c.status === 'approved').length}</span></h2>
+          ${aiEnabled ? '<span class="comment-ai-badge" title="已启用 AI 审查"><svg><use href="#i-ai"/></svg> AI 自动审查</span>' : ''}
+        </div>
+        <div class="comment-form" id="commentForm">
+          <div class="comment-form-row">
+            <input type="text" id="commentAuthor" placeholder="你的昵称" maxlength="30" />
+          </div>
+          <textarea id="commentContent" rows="4" placeholder="说点什么吧… 支持 Markdown 语法" maxlength="2000"></textarea>
+          <div class="comment-form-foot">
+            <span class="hint" id="commentHint">本地评论 · 数据仅保存在你的设备</span>
+            <div class="comment-form-actions">
+              <button class="btn btn-ghost" id="previewComment" type="button">预览</button>
+              <button class="btn btn-primary" id="submitComment" type="button">
+                <svg><use href="#i-send"/></svg> 发表评论
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="comment-list" id="commentList">
+          ${renderCommentList(comments)}
+        </div>
+      </section>
     `;
     app.innerHTML = html;
+
+    bindCommentSection(id);
 
     app.querySelectorAll('.prose pre').forEach(pre => {
       const code = pre.querySelector('code');
@@ -335,6 +378,150 @@
         }
       });
     });
+  }
+
+  function renderCommentList(comments) {
+    if (!comments || !comments.length) {
+      return `<div class="comment-empty">还没有评论，来抢沙发吧 🛋️</div>`;
+    }
+    return comments.map(c => {
+      const author = window.CBComments.sanitize(c.author);
+      const content = window.CBComments.sanitize(c.content);
+      let avatar;
+      if (c.userId && window.CBAccounts) {
+        const u = window.CBAccounts.getUserById(c.userId);
+        if (u) {
+          avatar = window.CBAccounts.avatarHTML(u, 36);
+        } else {
+          avatar = `<span class="user-avatar" style="width:36px;height:36px;font-size:14px;">${author.slice(0, 2).toUpperCase()}</span>`;
+        }
+      } else {
+        avatar = `<span class="user-avatar" style="width:36px;height:36px;font-size:14px;">${author.slice(0, 2).toUpperCase()}</span>`;
+      }
+      const userTag = c.role === 'admin'
+        ? `<span class="c-user-tag admin"><svg><use href="#i-shield"/></svg> 管理员</span>`
+        : (c.userId ? `<span class="c-user-tag">已登录</span>` : '');
+      const authorDisplay = c.userId
+        ? `<span class="c-user-link">${author}</span>${userTag}`
+        : author;
+      const statusBadge = c.status === 'pending'
+        ? '<span class="comment-status pending">⏳ 审核中</span>'
+        : c.status === 'rejected'
+        ? '<span class="comment-status rejected">❌ 已拒绝</span>'
+        : '';
+      const aiTag = c.aiResult && c.aiResult.tags && c.aiResult.tags.length
+        ? `<span class="comment-ai-tag">${c.aiResult.tags.slice(0, 2).join(' · ')}</span>`
+        : '';
+      return `
+        <div class="comment-item" data-id="${c.id}">
+          <div class="comment-avatar">${avatar}</div>
+          <div class="comment-body">
+            <div class="comment-meta">
+              <span class="comment-author">${authorDisplay}</span>
+              <span class="comment-time" title="${new Date(c.createdAt).toLocaleString()}">${fmtRelative(c.createdAt)}</span>
+              ${statusBadge}
+              ${aiTag}
+            </div>
+            <div class="comment-content">${content.replace(/\n/g, '<br/>')}</div>
+            ${c.aiResult && c.aiResult.reason ? `<div class="comment-ai-note">🤖 ${window.CBComments.sanitize(c.aiResult.reason)}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function bindCommentSection(postId) {
+    const form = document.getElementById('commentForm');
+    if (!form || !window.CBComments) return;
+
+    const authorInput = form.querySelector('#commentAuthor');
+    const contentInput = form.querySelector('#commentContent');
+    const submitBtn = form.querySelector('#submitComment');
+    const previewBtn = form.querySelector('#previewComment');
+    const countEl = document.getElementById('commentCount');
+    const listEl = document.getElementById('commentList');
+    const hintEl = form.querySelector('#commentHint');
+
+    const curUser = window.CBAccounts ? window.CBAccounts.getCurrentUser() : null;
+    if (curUser) {
+      authorInput.value = window.CBAccounts.displayName(curUser);
+      authorInput.disabled = true;
+      authorInput.style.background = 'var(--bg-elev)';
+      authorInput.style.opacity = '0.8';
+      hintEl.textContent = `已登录为 @${curUser.username} · 评论将关联到你的账号`;
+    } else {
+      const savedName = localStorage.getItem('cb_comment_author') || '';
+      if (savedName) authorInput.value = savedName;
+      hintEl.textContent = '未登录 · 评论仅本地可见，登录后可关联账号';
+    }
+
+    let previewing = false;
+    previewBtn.addEventListener('click', () => {
+      if (previewing) {
+        contentInput.value = contentInput.replace(/<[^>]+>/g, '');
+        previewBtn.innerHTML = '预览';
+        previewing = false;
+      } else {
+        const html = window.marked.parse(contentInput.value || '');
+        contentInput.value = html;
+        previewBtn.innerHTML = '编辑';
+        previewing = true;
+      }
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      const author = authorInput.value.trim();
+      const content = contentInput.value.trim();
+      if (!window.CBComments.canSubmit()) {
+        showToast('请稍后再发表评论', 'error');
+        return;
+      }
+      try {
+        const opts = {};
+        if (curUser) {
+          opts.userId = curUser.id;
+          opts.role = curUser.role;
+        }
+        const comment = window.CBComments.create(postId, author, content, opts);
+        if (!curUser) {
+          localStorage.setItem('cb_comment_author', comment.author);
+        }
+        contentInput.value = '';
+        contentInput.style.height = 'auto';
+
+        const aiEnabled = !!(window.CB_AI && window.CB_AI.config.apiKey);
+        if (aiEnabled) {
+          showToast('评论已发表，AI 正在审查…');
+          renderCommentSection(postId);
+          try {
+            await window.CBComments.aiReview(comment.id);
+          } catch (e) {}
+        } else {
+          showToast('评论已发表，等待审核');
+        }
+        renderCommentSection(postId);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    contentInput.addEventListener('input', () => {
+      contentInput.style.height = 'auto';
+      contentInput.style.height = Math.min(contentInput.scrollHeight, 300) + 'px';
+    });
+  }
+
+  function renderCommentSection(postId) {
+    if (!window.CBComments) return;
+    const listEl = document.getElementById('commentList');
+    const countEl = document.getElementById('commentCount');
+    if (!listEl) return;
+    const includePending = !!state.adminAuthed;
+    const comments = window.CBComments.getByPost(postId, includePending);
+    listEl.innerHTML = renderCommentList(comments);
+    if (countEl) {
+      countEl.textContent = comments.filter(c => c.status === 'approved').length;
+    }
   }
 
   function renderTags(app, filterTag) {
@@ -461,6 +648,7 @@
       { id: 'custom', name: '自定义' }
     ];
     const currentProvider = ai.config.provider;
+    const isCustom = currentProvider === 'custom';
     const models = ai.models[currentProvider] || [];
 
     app.innerHTML = `
@@ -475,15 +663,23 @@
                 ${providers.map(p => `<option value="${p.id}" ${p.id === currentProvider ? 'selected' : ''}>${p.name}</option>`).join('')}
               </select>
             </div>
-            <div class="ai-field">
+            <div class="ai-field" id="aiModelField" style="${isCustom ? 'display:none;' : ''}">
               <label>模型</label>
               <select id="aiModel">
                 ${models.map(m => `<option value="${m.id}" ${m.id === ai.config.model ? 'selected' : ''}>${m.name}</option>`).join('')}
               </select>
             </div>
+            <div class="ai-field" id="aiCustomModelField" style="${isCustom ? '' : 'display:none;'}">
+              <label>模型名称</label>
+              <input id="aiCustomModel" type="text" placeholder="例如：my-model-v1" value="${ai.config.customModel}"/>
+            </div>
             <div class="ai-field">
               <label>API Key</label>
               <input id="aiKey" type="password" placeholder="sk-..." value="${ai.config.apiKey}"/>
+            </div>
+            <div class="ai-field" id="aiBaseField" style="${isCustom ? '' : 'display:none;'}">
+              <label>Base URL</label>
+              <input id="aiBase" type="text" placeholder="https://api.example.com" value="${localStorage.getItem('cb_ai_base') || ''}"/>
             </div>
           </div>
         </div>
@@ -502,18 +698,51 @@
 
     const providerSel = document.getElementById('aiProvider');
     const modelSel = document.getElementById('aiModel');
+    const customModelInput = document.getElementById('aiCustomModel');
+    const baseInput = document.getElementById('aiBase');
     const keyInput = document.getElementById('aiKey');
+    const modelField = document.getElementById('aiModelField');
+    const customModelField = document.getElementById('aiCustomModelField');
+    const baseField = document.getElementById('aiBaseField');
     const chat = document.getElementById('aiChat');
     const input = document.getElementById('aiInput');
     const sendBtn = document.getElementById('aiSend');
 
+    function applyProviderUI() {
+      const isCustom = providerSel.value === 'custom';
+      modelField.style.display = isCustom ? 'none' : '';
+      customModelField.style.display = isCustom ? '' : 'none';
+      baseField.style.display = isCustom ? '' : 'none';
+      if (isCustom) {
+        if (!baseInput.value.trim()) {
+          const cur = localStorage.getItem('cb_ai_base') || '';
+          baseInput.value = cur;
+        }
+      } else {
+        const ms = ai.models[providerSel.value] || [];
+        modelSel.innerHTML = ms.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+      }
+    }
+
     providerSel.addEventListener('change', () => {
       ai.config.provider = providerSel.value;
-      const ms = ai.models[providerSel.value] || [];
-      modelSel.innerHTML = ms.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+      applyProviderUI();
     });
-    modelSel.addEventListener('change', () => ai.config.model = modelSel.value);
+    if (modelSel) modelSel.addEventListener('change', () => ai.config.model = modelSel.value);
+    if (customModelInput) {
+      customModelInput.addEventListener('input', () => {
+        ai.config.customModel = customModelInput.value.trim();
+      });
+    }
+    if (baseInput) {
+      baseInput.addEventListener('change', () => {
+        const v = baseInput.value.trim();
+        if (v) localStorage.setItem('cb_ai_base', v);
+        else localStorage.removeItem('cb_ai_base');
+      });
+    }
     keyInput.addEventListener('change', () => ai.config.apiKey = keyInput.value.trim());
+    applyProviderUI();
 
     input.addEventListener('input', () => {
       input.style.height = 'auto';
@@ -723,16 +952,49 @@
     const chip = document.getElementById('userChip');
     const avatarEl = document.getElementById('userAvatar');
     const nameEl = document.getElementById('userName');
+    const loginBtn = document.getElementById('loginBtn');
+
+    const curUser = window.CBAccounts && window.CBAccounts.getCurrentUser();
     const profile = state.profile;
-    if (!profile) return;
-    nameEl.textContent = window.CBProfile.displayName(profile);
-    if (profile.avatarType === 'emoji' && profile.avatarEmoji) {
-      avatarEl.textContent = profile.avatarEmoji;
-      avatarEl.style.fontSize = '16px';
-    } else if (profile.avatarType === 'image' && profile.avatarImage) {
-      avatarEl.innerHTML = `<img src="${profile.avatarImage}" alt="avatar">`;
+
+    if (curUser) {
+      chip.style.display = '';
+      chip.setAttribute('href', '#/account');
+      chip.setAttribute('title', '我的账号');
+      nameEl.textContent = window.CBAccounts.displayName(curUser) + (curUser.role === 'admin' ? ' 👑' : '');
+      if (curUser.avatarType === 'emoji' && curUser.avatarEmoji) {
+        avatarEl.textContent = curUser.avatarEmoji;
+        avatarEl.style.fontSize = '16px';
+      } else if (curUser.avatarType === 'image' && curUser.avatarImage) {
+        avatarEl.innerHTML = `<img src="${curUser.avatarImage}" alt="avatar">`;
+      } else {
+        avatarEl.textContent = (curUser.avatarInitials || curUser.nickname || curUser.username || '?').slice(0, 2).toUpperCase();
+        avatarEl.style.fontSize = '';
+      }
+      if (loginBtn) loginBtn.style.display = 'none';
+    } else if (profile) {
+      chip.style.display = '';
+      chip.setAttribute('href', '#/account');
+      chip.setAttribute('title', '登录/注册');
+      nameEl.textContent = '游客';
+      if (profile.avatarType === 'emoji' && profile.avatarEmoji) {
+        avatarEl.textContent = profile.avatarEmoji;
+        avatarEl.style.fontSize = '16px';
+      } else if (profile.avatarType === 'image' && profile.avatarImage) {
+        avatarEl.innerHTML = `<img src="${profile.avatarImage}" alt="avatar">`;
+      } else {
+        avatarEl.textContent = (profile.avatarInitials || profile.username || 'C').slice(0, 2).toUpperCase();
+        avatarEl.style.fontSize = '';
+      }
+      if (loginBtn) loginBtn.style.display = '';
     } else {
-      avatarEl.textContent = (profile.avatarInitials || profile.username || 'C').slice(0, 2).toUpperCase();
+      chip.style.display = '';
+      chip.setAttribute('href', '#/account');
+      chip.setAttribute('title', '登录/注册');
+      nameEl.textContent = '游客';
+      avatarEl.textContent = '?';
+      avatarEl.style.fontSize = '';
+      if (loginBtn) loginBtn.style.display = '';
     }
   }
 
@@ -943,19 +1205,228 @@
     document.getElementById('loginCancel2').addEventListener('click', () => location.hash = '#/');
   }
 
+  function initAccountOverlay() {
+    const overlay = document.getElementById('accountOverlay');
+    if (!overlay) return;
+
+    const tabs = overlay.querySelectorAll('.account-tab');
+    const panels = overlay.querySelectorAll('.account-panel');
+    const switchTab = (tab) => {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      panels.forEach(p => p.style.display = p.dataset.panel === tab ? '' : 'none');
+    };
+    tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+    const errEl = (id) => {
+      const el = document.getElementById(id);
+      return {
+        show(msg) { if (el) { el.textContent = msg; el.style.display = 'block'; } },
+        hide() { if (el) { el.textContent = ''; el.style.display = 'none'; } }
+      };
+    };
+
+    const loginErr = errEl('loginUserError');
+    const regErr = errEl('regError');
+
+    overlay.querySelector('#loginUserSubmit').addEventListener('click', async () => {
+      const u = overlay.querySelector('#loginUsername').value.trim();
+      const p = overlay.querySelector('#loginUserPassword').value;
+      loginErr.hide();
+      try {
+        await window.CBAccounts.login(u, p);
+        hideAccountOverlay();
+        updateUserChip();
+        showToast('登录成功');
+        route();
+      } catch (e) {
+        loginErr.show(e.message);
+      }
+    });
+
+    overlay.querySelector('#regSubmit').addEventListener('click', async () => {
+      const u = overlay.querySelector('#regUsername').value.trim();
+      const n = overlay.querySelector('#regNickname').value.trim();
+      const em = overlay.querySelector('#regEmail').value.trim();
+      const p1 = overlay.querySelector('#regPassword').value;
+      const p2 = overlay.querySelector('#regPasswordConfirm').value;
+      regErr.hide();
+      if (p1 !== p2) {
+        regErr.show('两次输入的密码不一致');
+        return;
+      }
+      try {
+        await window.CBAccounts.register({ username: u, nickname: n, email: em, password: p1 });
+        hideAccountOverlay();
+        updateUserChip();
+        showToast('注册成功，欢迎加入');
+        route();
+      } catch (e) {
+        regErr.show(e.message);
+      }
+    });
+
+    overlay.querySelector('#accountClose').addEventListener('click', hideAccountOverlay);
+
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) loginBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showAccountOverlay();
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) hideAccountOverlay();
+    });
+  }
+
+  function showAccountOverlay(tab = 'login') {
+    const overlay = document.getElementById('accountOverlay');
+    if (!overlay) return;
+    const tabs = overlay.querySelectorAll('.account-tab');
+    const panels = overlay.querySelectorAll('.account-panel');
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    panels.forEach(p => p.style.display = p.dataset.panel === tab ? '' : 'none');
+    overlay.style.display = 'flex';
+  }
+  function hideAccountOverlay() {
+    const overlay = document.getElementById('accountOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function renderAccountPage(app) {
+    const curUser = window.CBAccounts.getCurrentUser();
+    if (!curUser) {
+      app.innerHTML = `
+        <div class="login-required-card">
+          <svg><use href="#i-log-in"/></svg>
+          <h3>请先登录</h3>
+          <p>登录后才能访问个人中心、发表评论、使用更多功能</p>
+          <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn btn-primary" id="toLogin"><svg><use href="#i-log-in"/></svg> 登录</button>
+            <button class="btn btn-ghost" id="toRegister"><svg><use href="#i-user-plus"/></svg> 注册</button>
+          </div>
+        </div>
+      `;
+      app.querySelector('#toLogin').addEventListener('click', () => showAccountOverlay('login'));
+      app.querySelector('#toRegister').addEventListener('click', () => showAccountOverlay('register'));
+      return;
+    }
+
+    const users = window.CBAccounts.listUsers();
+    const myComments = (window.CBComments ? window.CBComments.getAll() : []).filter(c => c.userId === curUser.id).length;
+    const roleText = curUser.role === 'admin' ? '管理员' : (curUser.role === 'banned' ? '已封禁' : '普通用户');
+    const joinDate = curUser.createdAt ? new Date(curUser.createdAt).toLocaleDateString('zh-CN') : '';
+
+    app.innerHTML = `
+      <div class="account-page">
+        <aside class="account-profile-card">
+          ${window.CBAccounts.avatarHTML(curUser, 84)}
+          <h2>${window.CBAccounts.displayName(curUser)}</h2>
+          <div class="handle">@${curUser.username}</div>
+          <span class="role-tag ${curUser.role}">
+            <svg><use href="${curUser.role === 'admin' ? '#i-shield' : (curUser.role === 'banned' ? '#i-ban' : '#i-user')}"/></svg>
+            ${roleText}
+          </span>
+          <div class="stat-row">
+            <div class="stat-cell"><div class="num">${users.length}</div><div class="lbl">全站用户</div></div>
+            <div class="stat-cell"><div class="num">${myComments}</div><div class="lbl">我的评论</div></div>
+          </div>
+          <p class="hint" style="font-size:11px;margin:16px 0 0;">注册于 ${joinDate}</p>
+          <div style="display:flex;gap:8px;margin-top:16px;flex-direction:column;">
+            ${curUser.role === 'admin' ? `<a class="btn btn-primary" href="#/admin" data-route style="justify-content:center;"><svg><use href="#i-shield"/></svg> 进入后台</a>` : ''}
+            <button class="btn btn-ghost" id="logoutBtn" style="justify-content:center;"><svg><use href="#i-logout"/></svg> 退出登录</button>
+          </div>
+        </aside>
+
+        <main class="account-main">
+          <section class="account-section">
+            <h3><svg><use href="#i-user"/></svg> 基本资料</h3>
+            <p class="section-desc">更新你的昵称、邮箱和头像展示</p>
+            <div class="account-grid-2">
+              <div class="form-row"><label>用户名</label><input type="text" value="${curUser.username}" disabled style="opacity:0.7;background:var(--bg-elev);"/></div>
+              <div class="form-row"><label>昵称</label><input type="text" id="accNickname" value="${curUser.nickname || ''}" maxlength="30"/></div>
+              <div class="form-row"><label>邮箱</label><input type="email" id="accEmail" value="${curUser.email || ''}" placeholder="可选"/></div>
+              <div class="form-row"><label>头像文字</label><input type="text" id="accInitials" value="${curUser.avatarInitials || ''}" maxlength="2"/></div>
+            </div>
+            <div class="form-row"><label>个人简介</label><textarea id="accBio" rows="3" maxlength="300" placeholder="一句话介绍自己…">${curUser.bio || ''}</textarea></div>
+            <button class="btn btn-primary" id="saveProfile"><svg><use href="#i-check"/></svg> 保存修改</button>
+          </section>
+
+          <section class="account-section">
+            <h3><svg><use href="#i-key"/></svg> 修改密码</h3>
+            <p class="section-desc">使用原密码验证后修改新密码</p>
+            <div class="account-grid-2">
+              <div class="form-row"><label>原密码</label><input type="password" id="oldPwd" autocomplete="current-password"/></div>
+              <div class="form-row"><label>新密码</label><input type="password" id="newPwd" autocomplete="new-password"/></div>
+            </div>
+            <div class="form-row"><label>确认新密码</label><input type="password" id="confirmPwd" autocomplete="new-password"/></div>
+            <button class="btn btn-ghost" id="changePwd" style="border-color:rgba(239,68,68,0.3);color:var(--danger);"><svg><use href="#i-lock"/></svg> 修改密码</button>
+          </section>
+        </main>
+      </div>
+    `;
+
+    app.querySelector('#logoutBtn').addEventListener('click', () => {
+      window.CBAccounts.logout();
+      updateUserChip();
+      showToast('已退出登录');
+      location.hash = '#/';
+    });
+
+    app.querySelector('#saveProfile').addEventListener('click', async () => {
+      try {
+        await window.CBAccounts.updateProfile(curUser.id, {
+          nickname: app.querySelector('#accNickname').value.trim(),
+          email: app.querySelector('#accEmail').value.trim(),
+          avatarInitials: app.querySelector('#accInitials').value.trim(),
+          bio: app.querySelector('#accBio').value.trim()
+        });
+        showToast('资料已更新');
+        updateUserChip();
+        route();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+
+    app.querySelector('#changePwd').addEventListener('click', async () => {
+      const oldP = app.querySelector('#oldPwd').value;
+      const newP = app.querySelector('#newPwd').value;
+      const cfmP = app.querySelector('#confirmPwd').value;
+      if (newP !== cfmP) { showToast('两次输入的新密码不一致', 'error'); return; }
+      try {
+        await window.CBAccounts.changePassword(curUser.id, oldP, newP);
+        showToast('密码修改成功，请重新登录');
+        window.CBAccounts.logout();
+        updateUserChip();
+        location.hash = '#/account';
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+
+    bindRouteLinks(app);
+  }
+
   function renderAdmin(app, param) {
     const profile = state.profile || window.CBProfile.DEFAULT;
+    const curUser = window.CBAccounts ? window.CBAccounts.getCurrentUser() : null;
     const tab = param || state.adminTab || 'dashboard';
     state.adminTab = tab;
+
+    const adminDisplayName = curUser ? window.CBAccounts.displayName(curUser) : (profile.username || 'C');
+    const adminAvatarHTML = curUser
+      ? window.CBAccounts.avatarHTML(curUser, 36)
+      : window.CBProfile.avatarHTML(profile, 36);
+    const adminRoleText = curUser ? (curUser.role === 'admin' ? '管理员' : '账号登录') : '管理员';
 
     app.innerHTML = `
       <div class="admin-layout">
         <aside class="admin-sidebar">
           <div class="admin-sidebar-user">
-            ${window.CBProfile.avatarHTML(profile, 36)}
+            ${adminAvatarHTML}
             <div class="info">
-              <div class="name">${profile.username || 'C'}</div>
-              <div class="role">管理员</div>
+              <div class="name">${adminDisplayName}</div>
+              <div class="role">${adminRoleText}</div>
             </div>
             <button class="logout" id="adminLogout" title="退出">
               <svg><use href="#i-logout"/></svg>
@@ -972,6 +1443,10 @@
             <a class="${tab === 'posts' ? 'active' : ''}" data-tab="posts" href="#/admin/posts">
               <svg><use href="#i-edit"/></svg> 文章管理
             </a>
+            <a class="${tab === 'comments' ? 'active' : ''}" data-tab="comments" href="#/admin/comments">
+              <svg><use href="#i-comment"/></svg> 评论管理
+              ${window.CBComments && window.CBComments.countPending() > 0 ? `<span class="nav-badge">${window.CBComments.countPending()}</span>` : ''}
+            </a>
             <a class="${tab === 'skills' ? 'active' : ''}" data-tab="skills" href="#/admin/skills">
               <svg><use href="#i-skill"/></svg> Skill 插件
             </a>
@@ -980,6 +1455,10 @@
             </a>
             <a class="${tab === 'site' ? 'active' : ''}" data-tab="site" href="#/admin/site">
               <svg><use href="#i-setting"/></svg> 站点设置
+            </a>
+            <a class="${tab === 'users' ? 'active' : ''}" data-tab="users" href="#/admin/users">
+              <svg><use href="#i-user"/></svg> 账号管理
+              ${window.CBAccounts ? `<span class="nav-badge">${window.CBAccounts.listUsers().length}</span>` : ''}
             </a>
             <a class="${tab === 'backup' ? 'active' : ''}" data-tab="backup" href="#/admin/backup">
               <svg><use href="#i-download"/></svg> 备份/导入
@@ -1005,6 +1484,185 @@
 
     const content = app.querySelector('#adminContent');
     renderAdminTab(content, tab);
+  }
+
+  function renderAdminUsers(container) {
+    if (!window.CBAccounts) {
+      container.innerHTML = `<div class="admin-user-empty">账号系统未加载</div>`;
+      return;
+    }
+    const users = window.CBAccounts.listUsers();
+    const total = users.length;
+    const admins = users.filter(u => u.role === 'admin').length;
+    const banned = users.filter(u => u.role === 'banned').length;
+    const active = total - banned;
+
+    container.innerHTML = `
+      <div class="admin-content-header">
+        <div>
+          <h1><svg><use href="#i-user"/></svg> 账号管理</h1>
+          <p>管理注册账号、角色与状态</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" id="exportUsers"><svg><use href="#i-download"/></svg> 导出</button>
+          <button class="btn btn-ghost" id="importUsers"><svg><use href="#i-upload"/></svg> 导入</button>
+          <input type="file" id="usersImportFile" accept=".json" style="display:none"/>
+          <button class="btn btn-primary" id="addUserBtn"><svg><use href="#i-user-plus"/></svg> 新增账号</button>
+        </div>
+      </div>
+
+      <div class="admin-user-stats" style="margin-top:16px;">
+        <div class="admin-user-stat"><div class="num">${total}</div><div class="lbl">总账号</div></div>
+        <div class="admin-user-stat"><div class="num">${active}</div><div class="lbl">活跃账号</div></div>
+        <div class="admin-user-stat"><div class="num">${admins}</div><div class="lbl">管理员</div></div>
+        <div class="admin-user-stat"><div class="num">${banned}</div><div class="lbl">已封禁</div></div>
+      </div>
+
+      <div id="addUserForm" style="display:none;margin-top:20px;padding:20px;background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;">
+        <h3 style="margin:0 0 12px;font-size:14px;">新增账号</h3>
+        <div class="admin-form-grid" style="grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-row"><label>用户名</label><input type="text" id="newUsername" placeholder="3-24 位" maxlength="24"/></div>
+          <div class="form-row"><label>昵称</label><input type="text" id="newNickname" placeholder="可选"/></div>
+          <div class="form-row"><label>邮箱</label><input type="email" id="newEmail" placeholder="可选"/></div>
+          <div class="form-row"><label>初始密码</label><input type="password" id="newPassword" placeholder="至少 6 位"/></div>
+          <div class="form-row"><label>角色</label>
+            <select id="newRole">
+              <option value="user">普通用户</option>
+              <option value="admin">管理员</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn btn-primary" id="submitNewUser"><svg><use href="#i-check"/></svg> 创建</button>
+          <button class="btn btn-ghost" id="cancelNewUser">取消</button>
+        </div>
+      </div>
+
+      <div class="admin-user-list">
+        ${users.length === 0 ? `<div class="admin-user-empty">暂无注册账号。你可以通过注册或上方按钮新增账号。</div>` : users.map(u => {
+          const roleLabel = u.role === 'admin' ? '管理员' : (u.role === 'banned' ? '已封禁' : '普通用户');
+          const join = u.createdAt ? fmtDate(u.createdAt) : '-';
+          const last = u.lastLoginAt ? fmtRelative(u.lastLoginAt) : '从未登录';
+          return `
+          <div class="admin-user-row" data-id="${u.id}">
+            ${window.CBAccounts.avatarHTML(u, 44)}
+            <div class="admin-user-info">
+              <div class="u-name">
+                ${window.CBAccounts.displayName(u)}
+                <span class="admin-user-badge ${u.role}">${roleLabel}</span>
+              </div>
+              <div class="u-meta">@${u.username} · ${u.email || '无邮箱'} · 加入 ${join} · ${last}</div>
+            </div>
+            <div class="admin-user-actions">
+              <select data-role-select data-id="${u.id}">
+                <option value="user" ${u.role === 'user' ? 'selected' : ''}>普通</option>
+                <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>管理员</option>
+                <option value="banned" ${u.role === 'banned' ? 'selected' : ''}>封禁</option>
+              </select>
+              <button class="mini-btn" data-reset-pwd data-id="${u.id}"><svg><use href="#i-key"/></svg> 重置密码</button>
+              <button class="mini-btn danger" data-remove data-id="${u.id}"><svg><use href="#i-trash"/></svg> 删除</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+
+    const addForm = container.querySelector('#addUserForm');
+    container.querySelector('#addUserBtn').addEventListener('click', () => {
+      addForm.style.display = addForm.style.display === 'none' ? '' : 'none';
+    });
+    container.querySelector('#cancelNewUser').addEventListener('click', () => {
+      addForm.style.display = 'none';
+    });
+    container.querySelector('#submitNewUser').addEventListener('click', async () => {
+      try {
+        await window.CBAccounts.register({
+          username: container.querySelector('#newUsername').value,
+          nickname: container.querySelector('#newNickname').value,
+          email: container.querySelector('#newEmail').value,
+          password: container.querySelector('#newPassword').value,
+          role: container.querySelector('#newRole').value
+        });
+        showToast('账号已创建');
+        renderAdminUsers(container);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+
+    container.querySelector('#exportUsers').addEventListener('click', () => {
+      const data = window.CBAccounts.exportAll();
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `c-blog-users-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('账号数据已导出');
+    });
+
+    const importFile = container.querySelector('#usersImportFile');
+    container.querySelector('#importUsers').addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const n = window.CBAccounts.importJSON(ev.target.result, { replace: confirm('是否覆盖现有账号？取消则合并导入。') });
+          showToast(`已导入 ${n} 条账号`);
+          renderAdminUsers(container);
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+      importFile.value = '';
+    });
+
+    container.querySelectorAll('[data-role-select]').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        const id = sel.dataset.id;
+        const role = sel.value;
+        try {
+          window.CBAccounts.adminSetRole(id, role);
+          showToast('角色已更新');
+          renderAdminUsers(container);
+        } catch (e) {
+          showToast(e.message, 'error');
+          renderAdminUsers(container);
+        }
+      });
+    });
+
+    container.querySelectorAll('[data-reset-pwd]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const newPwd = prompt('请输入新密码（至少 6 位）：');
+        if (!newPwd) return;
+        try {
+          await window.CBAccounts.adminResetPassword(id, newPwd);
+          showToast('密码已重置');
+        } catch (e) {
+          showToast(e.message, 'error');
+        }
+      });
+    });
+
+    container.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        if (!confirm('确认删除该账号？此操作不可恢复。')) return;
+        try {
+          window.CBAccounts.adminRemoveUser(id);
+          showToast('账号已删除');
+          renderAdminUsers(container);
+        } catch (e) {
+          showToast(e.message, 'error');
+        }
+      });
+    });
   }
 
   function renderAdminTab(container, tab) {
@@ -1099,6 +1757,8 @@
       });
     } else if (tab === 'posts') {
       renderPostsManager(container);
+    } else if (tab === 'comments') {
+      renderCommentsManager(container);
     } else if (tab === 'skills') {
       container.innerHTML = `
         <div class="admin-content-header">
@@ -1139,6 +1799,9 @@
         });
       });
     } else if (tab === 'ai') {
+      const curProvider = window.CB_AI.config.provider;
+      const isCustom = curProvider === 'custom';
+      const modelOptions = (window.CB_AI.models[curProvider] || []).map(m => `<option value="${m.id}" ${window.CB_AI.config.model === m.id ? 'selected' : ''}>${m.name}</option>`).join('');
       container.innerHTML = `
         <div class="admin-content-header">
           <div>
@@ -1153,25 +1816,46 @@
           <div class="form-row">
             <label>供应商</label>
             <select id="aiProviderSel">
-              ${[{id:'openrouter',name:'OpenRouter'},{id:'deepseek',name:'DeepSeek'},{id:'qwen',name:'阿里云百炼'},{id:'custom',name:'自定义'}].map(p => `<option value="${p.id}" ${window.CB_AI.config.provider === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+              ${[{id:'openrouter',name:'OpenRouter'},{id:'deepseek',name:'DeepSeek'},{id:'qwen',name:'阿里云百炼'},{id:'custom',name:'自定义'}].map(p => `<option value="${p.id}" ${curProvider === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
             </select>
           </div>
-          <div class="form-row">
+          <div class="form-row" id="aiModelRow" style="${isCustom ? 'display:none;' : ''}">
             <label>模型</label>
-            <select id="aiModelSel">
-              ${(window.CB_AI.models[window.CB_AI.config.provider] || []).map(m => `<option value="${m.id}" ${window.CB_AI.config.model === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
-            </select>
+            <select id="aiModelSel">${modelOptions}</select>
+          </div>
+          <div class="form-row" id="aiCustomModelRow" style="${isCustom ? '' : 'display:none;'}">
+            <label>自定义模型名称</label>
+            <input type="text" id="aiCustomModelInput" value="${window.CB_AI.config.customModel}" placeholder="例如：my-model-v1"/>
           </div>
         </div>
         <div class="form-row"><label>API Key</label><input type="password" id="aiKeyInput" value="${window.CB_AI.config.apiKey}" placeholder="sk-..."/></div>
-        <div class="form-row"><label>自定义 Base URL（可选）</label><input type="text" id="aiBaseInput" placeholder="https://api.example.com"/></div>
+        <div class="form-row"><label>Base URL（自定义供应商必填，其他可选覆盖）</label><input type="text" id="aiBaseInput" value="${localStorage.getItem('cb_ai_base') || ''}" placeholder="https://api.example.com"/></div>
       `;
+      const providerSel = container.querySelector('#aiProviderSel');
+      const modelRow = container.querySelector('#aiModelRow');
+      const customModelRow = container.querySelector('#aiCustomModelRow');
+      const modelSel = container.querySelector('#aiModelSel');
+      providerSel.addEventListener('change', () => {
+        const isC = providerSel.value === 'custom';
+        modelRow.style.display = isC ? 'none' : '';
+        customModelRow.style.display = isC ? '' : 'none';
+        if (!isC) {
+          const ms = window.CB_AI.models[providerSel.value] || [];
+          modelSel.innerHTML = ms.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+        }
+      });
       container.querySelector('#saveAI').addEventListener('click', () => {
-        window.CB_AI.config.provider = container.querySelector('#aiProviderSel').value;
-        window.CB_AI.config.model = container.querySelector('#aiModelSel').value;
+        const provider = providerSel.value;
+        window.CB_AI.config.provider = provider;
+        if (provider === 'custom') {
+          window.CB_AI.config.customModel = container.querySelector('#aiCustomModelInput').value.trim();
+        } else {
+          window.CB_AI.config.model = modelSel.value;
+        }
         window.CB_AI.config.apiKey = container.querySelector('#aiKeyInput').value.trim();
         const base = container.querySelector('#aiBaseInput').value.trim();
         if (base) localStorage.setItem('cb_ai_base', base);
+        else localStorage.removeItem('cb_ai_base');
         showToast('AI 配置已保存');
       });
     } else if (tab === 'site') {
@@ -1241,6 +1925,8 @@
           showToast('密码已清除');
         }
       });
+    } else if (tab === 'users') {
+      renderAdminUsers(container);
     } else if (tab === 'backup') {
       container.innerHTML = `
         <div class="admin-content-header">
@@ -1279,9 +1965,27 @@
         </div>
       `;
       container.querySelector('#exportAll').addEventListener('click', () => {
-        const data = { profile: state.profile, posts: state.posts, skills: [...state.activeSkills] };
+        const aiConfig = {};
+        try {
+          aiConfig.provider = localStorage.getItem('cb_ai_provider');
+          aiConfig.model = localStorage.getItem('cb_ai_model');
+          aiConfig.customModel = localStorage.getItem('cb_ai_custom_model');
+          aiConfig.baseUrl = localStorage.getItem('cb_ai_base');
+          aiConfig.apiKey = localStorage.getItem('cb_ai_key') ? '***' : '';
+        } catch {}
+        const data = {
+          version: 2,
+          exportedAt: new Date().toISOString(),
+          profile: state.profile,
+          posts: state.posts,
+          comments: window.CBComments ? window.CBComments.getAll() : [],
+          skills: [...state.activeSkills],
+          theme: localStorage.getItem('cb_theme'),
+          brandGradient: localStorage.getItem('cb_brand_gradient'),
+          ai: aiConfig
+        };
         downloadJSON(data, `c-blog-backup-${Date.now()}.json`);
-        showToast('导出成功');
+        showToast('导出成功，已包含评论与配置');
       });
       container.querySelector('#exportProfile').addEventListener('click', () => {
         downloadJSON(state.profile, `c-blog-profile-${Date.now()}.json`);
@@ -1295,6 +1999,18 @@
             const data = JSON.parse(ev.target.result);
             if (data.profile) { window.CBProfile.set(data.profile); state.profile = window.CBProfile.get(); }
             if (Array.isArray(data.posts)) { store.set('custom_posts', data.posts); state.posts = data.posts; }
+            if (Array.isArray(data.comments) && window.CBComments) { window.CBComments.importJSON(JSON.stringify(data.comments)); }
+            if (data.skills) { store.set('active_skills', data.skills); state.activeSkills = new Set(data.skills); }
+            if (data.theme) { localStorage.setItem('cb_theme', data.theme); }
+            if (data.brandGradient) { localStorage.setItem('cb_brand_gradient', data.brandGradient); }
+            if (data.ai) {
+              if (data.ai.provider) localStorage.setItem('cb_ai_provider', data.ai.provider);
+              if (data.ai.model) localStorage.setItem('cb_ai_model', data.ai.model);
+              if (data.ai.customModel) localStorage.setItem('cb_ai_custom_model', data.ai.customModel);
+              if (data.ai.baseUrl) localStorage.setItem('cb_ai_base', data.ai.baseUrl);
+              else localStorage.removeItem('cb_ai_base');
+              if (data.ai.apiKey && data.ai.apiKey !== '***') localStorage.setItem('cb_ai_key', data.ai.apiKey);
+            }
             showToast('导入成功，页面即将刷新');
             updateUserChip();
             route();
@@ -1309,6 +2025,7 @@
           const data = JSON.parse(container.querySelector('#rawJSON').value);
           if (data.profile) { window.CBProfile.set(data.profile); state.profile = window.CBProfile.get(); }
           if (Array.isArray(data.posts)) { state.posts = data.posts; store.set('custom_posts', data.posts); }
+          if (Array.isArray(data.comments) && window.CBComments) { window.CBComments.importJSON(JSON.stringify(data.comments)); }
           updateUserChip();
           showToast('应用成功');
         } catch (err) {
@@ -1320,6 +2037,77 @@
           localStorage.clear();
           location.reload();
         }
+      });
+
+      const ghCfg = window.CBGitHubStore.getConfig();
+      container.innerHTML += `
+        <div style="margin-top:24px;padding:20px;background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;">
+          <h3 style="margin:0 0 12px;font-size:15px;">☁️ GitHub 云端同步</h3>
+          <p class="hint" style="margin-bottom:16px;">配置 GitHub 仓库后，所有数据将自动同步到云端，换设备也能访问。</p>
+          <div class="admin-form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="form-row"><label>GitHub 仓库</label><input type="text" id="ghRepo" value="${ghCfg.repo}" placeholder="username/repo-name"/></div>
+            <div class="form-row"><label>Personal Access Token</label><input type="password" id="ghToken" value="${ghCfg.token}" placeholder="ghp_..."/></div>
+          </div>
+          <p class="hint" style="font-size:12px;color:var(--muted);margin-top:8px;">需要 repo 权限的 PAT，创建地址：https://github.com/settings/tokens</p>
+          <div style="display:flex;gap:10px;margin-top:16px;">
+            <button class="btn btn-primary" id="saveGH">保存配置</button>
+            <button class="btn btn-ghost" id="testGH">测试连接</button>
+            <button class="btn btn-ghost" id="syncUp">立即上传</button>
+          </div>
+          ${ghCfg.repo ? `<div id="ghStatus" style="margin-top:12px;padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#22c55e;font-size:13px;">✓ 已配置：${ghCfg.repo}</div>` : ''}
+        </div>
+      `;
+
+      container.querySelector('#saveGH').addEventListener('click', () => {
+        const repo = container.querySelector('#ghRepo').value.trim();
+        const token = container.querySelector('#ghToken').value.trim();
+        if (!repo) { showToast('请输入仓库地址', 'error'); return; }
+        if (!token) { showToast('请输入 Token', 'error'); return; }
+        window.CBGitHubStore.setConfig({ repo, token });
+        showToast('GitHub 配置已保存');
+        document.getElementById('ghStatus').innerHTML = `✓ 已配置：${repo}`;
+        document.getElementById('ghStatus').style.display = 'block';
+      });
+
+      container.querySelector('#testGH').addEventListener('click', async () => {
+        const btn = container.querySelector('#testGH');
+        const oldText = btn.innerHTML;
+        btn.innerHTML = '<svg><use href="#i-loader"/></svg> 测试中...';
+        btn.disabled = true;
+        try {
+          await window.CBGitHubStore.listFiles('data');
+          showToast('✓ GitHub 连接成功！');
+        } catch (err) {
+          showToast('连接失败：' + err.message, 'error');
+        }
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+      });
+
+      container.querySelector('#syncUp').addEventListener('click', async () => {
+        if (!window.CBGitHubStore.hasConfig()) {
+          showToast('请先配置 GitHub', 'error');
+          return;
+        }
+        const btn = container.querySelector('#syncUp');
+        const oldText = btn.innerHTML;
+        btn.innerHTML = '<svg><use href="#i-loader"/></svg> 上传中...';
+        btn.disabled = true;
+        try {
+          await window.CBGitHubStore.putFile('data/profile.json', JSON.stringify(state.profile, null, 2), 'Sync profile');
+          await window.CBGitHubStore.putFile('data/posts.json', JSON.stringify(state.posts, null, 2), 'Sync posts');
+          if (window.CBComments) {
+            await window.CBGitHubStore.putFile('data/comments.json', JSON.stringify(window.CBComments.getAll(), null, 2), 'Sync comments');
+          }
+          if (window.CBAccounts) {
+            await window.CBGitHubStore.putFile('data/users.json', window.CBAccounts.exportAll(), 'Sync users');
+          }
+          showToast('✓ 所有数据已上传到 GitHub');
+        } catch (err) {
+          showToast('上传失败：' + err.message, 'error');
+        }
+        btn.innerHTML = oldText;
+        btn.disabled = false;
       });
     }
   }
@@ -1374,7 +2162,7 @@
       const idxs = state.posts.findIndex(p => p.id === id);
       if (idxs >= 0) {
         state.posts.splice(idxs, 1);
-        store.set('custom_posts', state.posts);
+        savePosts(state.posts);
         showToast('文章已删除');
         renderPostsManager(container);
       }
@@ -1434,16 +2222,163 @@
       };
       if (existing) {
         const idx = state.posts.findIndex(p => p.id === existing.id);
-        if (idxs >= 0) state.posts[idx] = updated;
+        if (idx >= 0) state.posts[idx] = updated;
       } else {
         state.posts.unshift(updated);
       }
-      store.set('custom_posts', state.posts);
+      savePosts(state.posts);
       modal.remove();
       showToast('文章已保存');
       renderAdminTab(document.querySelector('#adminContent'), 'posts');
       bus.emit('posts:updated', state.posts);
     });
+  }
+
+  function renderCommentsManager(container) {
+    if (!window.CBComments) {
+      container.innerHTML = `<div style="padding:40px;color:var(--text-muted);text-align:center;">评论模块未加载</div>`;
+      return;
+    }
+    const all = window.CBComments.getAll();
+    const pending = all.filter(c => c.status === 'pending');
+    const approved = all.filter(c => c.status === 'approved');
+    const rejected = all.filter(c => c.status === 'rejected');
+
+    container.innerHTML = `
+      <div class="admin-content-header">
+        <div>
+          <h1><svg><use href="#i-comment"/></svg> 评论管理</h1>
+          <p>审核所有评论，支持 AI 自动审查。</p>
+        </div>
+        <div class="admin-form-actions">
+          <button class="btn btn-ghost" id="aiReviewAll" ${pending.length === 0 ? 'disabled style="opacity:.5;cursor:not-allowed;"' : ''}>
+            <svg><use href="#i-ai"/></svg> AI 批量审查 ${pending.length ? '(' + pending.length + ')' : ''}
+          </button>
+          <button class="btn btn-primary" id="approveAll" ${pending.length === 0 ? 'disabled style="opacity:.5;cursor:not-allowed;"' : ''}>
+            一键通过
+          </button>
+        </div>
+      </div>
+      <div class="admin-stats-grid">
+        <div class="admin-stat"><div class="label">评论总数</div><div class="value">${all.length}</div></div>
+        <div class="admin-stat pending"><div class="label">待审核</div><div class="value">${pending.length}</div></div>
+        <div class="admin-stat approved"><div class="label">已通过</div><div class="value">${approved.length}</div></div>
+        <div class="admin-stat rejected"><div class="label">已拒绝</div><div class="value">${rejected.length}</div></div>
+      </div>
+      <div class="admin-tabs" style="display:flex;gap:8px;margin:20px 0 12px;">
+        <button class="admin-tab active" data-filter="all">全部 (${all.length})</button>
+        <button class="admin-tab" data-filter="pending">待审核 (${pending.length})</button>
+        <button class="admin-tab" data-filter="approved">已通过 (${approved.length})</button>
+        <button class="admin-tab" data-filter="rejected">已拒绝 (${rejected.length})</button>
+      </div>
+      <div class="admin-comment-list" id="adminCommentList">
+        ${renderAdminCommentList(all, 'all')}
+      </div>
+    `;
+
+    let currentFilter = 'all';
+    container.querySelectorAll('.admin-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        container.querySelector('#adminCommentList').innerHTML = renderAdminCommentList(
+          window.CBComments.getAll(), currentFilter
+        );
+        bindAdminCommentList(container);
+      });
+    });
+
+    container.querySelector('#approveAll').addEventListener('click', () => {
+      if (!pending.length) return;
+      pending.forEach(c => window.CBComments.approve(c.id));
+      showToast(`已通过 ${pending.length} 条评论`);
+      renderCommentsManager(container);
+    });
+
+    container.querySelector('#aiReviewAll').addEventListener('click', async () => {
+      if (!pending.length) return;
+      const btn = container.querySelector('#aiReviewAll');
+      btn.disabled = true;
+      btn.textContent = '审查中…';
+      showToast(`AI 正在审查 ${pending.length} 条评论`);
+      try {
+        await window.CBComments.aiReviewBatch(pending.map(c => c.id));
+        showToast('AI 审查完成');
+      } catch (err) {
+        showToast('审查失败：' + err.message, 'error');
+      }
+      renderCommentsManager(container);
+    });
+
+    bindAdminCommentList(container);
+  }
+
+  function renderAdminCommentList(all, filter) {
+    const list = filter === 'all' ? all : all.filter(c => c.status === filter);
+    if (!list.length) {
+      return `<div style="padding:40px;color:var(--text-muted);text-align:center;">暂无评论</div>`;
+    }
+    return list.map(c => {
+      const post = state.posts.find(p => p.id === c.postId);
+      const postTitle = post ? post.title : '(文章已删除)';
+      const postId = c.postId;
+      const statusClass = c.status;
+      const statusLabel = { pending: '待审核', approved: '已通过', rejected: '已拒绝' }[c.status];
+      return `
+        <div class="admin-comment-row" data-id="${c.id}">
+          <div class="thumb">${c.author.slice(0, 2).toUpperCase()}</div>
+          <div class="meta" style="flex:1;min-width:0;">
+            <p class="title"><strong>${window.CBComments.sanitize(c.author)}</strong> <span class="comment-status ${statusClass}" style="margin-left:8px;">${statusLabel}</span></p>
+            <p class="sub">${window.CBComments.sanitize(c.content).slice(0, 200)}${c.content.length > 200 ? '…' : ''}</p>
+            <p class="sub" style="font-size:12px;margin-top:4px;">
+              <a href="#/post/${postId}" data-route style="color:var(--accent);">${window.CBComments.sanitize(postTitle)}</a>
+              · ${new Date(c.createdAt).toLocaleString()}
+              ${c.aiResult && c.aiResult.reason ? ` · <span style="color:var(--text-muted);">🤖 ${window.CBComments.sanitize(c.aiResult.reason)}</span>` : ''}
+            </p>
+          </div>
+          <div class="actions">
+            ${c.status !== 'approved' ? '<button class="icon-btn approve" title="通过"><svg><use href="#i-check"/></svg></button>' : ''}
+            ${c.status !== 'rejected' ? '<button class="icon-btn reject" title="拒绝"><svg><use href="#i-close"/></svg></button>' : ''}
+            <button class="icon-btn ai" title="AI 审查"><svg><use href="#i-ai"/></svg></button>
+            <button class="icon-btn danger delete" title="删除"><svg><use href="#i-trash"/></svg></button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function bindAdminCommentList(container) {
+    container.querySelectorAll('.admin-comment-row').forEach(row => {
+      const id = row.dataset.id;
+      row.querySelector('.approve')?.addEventListener('click', () => {
+        window.CBComments.approve(id);
+        showToast('已通过');
+        renderCommentsManager(container);
+      });
+      row.querySelector('.reject')?.addEventListener('click', () => {
+        window.CBComments.reject(id);
+        showToast('已拒绝');
+        renderCommentsManager(container);
+      });
+      row.querySelector('.ai')?.addEventListener('click', async () => {
+        showToast('AI 审查中…');
+        try {
+          await window.CBComments.aiReview(id);
+          showToast('审查完成');
+        } catch (e) {
+          showToast('审查失败：' + e.message, 'error');
+        }
+        renderCommentsManager(container);
+      });
+      row.querySelector('.delete')?.addEventListener('click', () => {
+        if (!confirm('确认删除此评论？')) return;
+        window.CBComments.remove(id);
+        showToast('评论已删除');
+        renderCommentsManager(container);
+      });
+    });
+    bindRouteLinks(container);
   }
 
   function bindRouteLinks(root) {
@@ -1455,6 +2390,50 @@
     });
   }
 
+  async function syncFromGitHub() {
+    if (!window.CBGitHubStore || !window.CBGitHubStore.hasConfig()) {
+      return;
+    }
+    try {
+      const profileRes = await window.CBGitHubStore.getFile('data/profile.json');
+      if (profileRes.exists && profileRes.content) {
+        const profile = JSON.parse(profileRes.content);
+        window.CBProfile.set(profile);
+      }
+
+      const postsRes = await window.CBGitHubStore.getFile('data/posts.json');
+      if (postsRes.exists && postsRes.content) {
+        const posts = JSON.parse(postsRes.content);
+        if (Array.isArray(posts) && posts.length) {
+          store.set('custom_posts', posts);
+        }
+      }
+
+      const commentsRes = await window.CBGitHubStore.getFile('data/comments.json');
+      if (commentsRes.exists && commentsRes.content && window.CBComments) {
+        window.CBComments.importJSON(commentsRes.content);
+      }
+
+      const usersRes = await window.CBGitHubStore.getFile('data/users.json');
+      if (usersRes.exists && usersRes.content && window.CBAccounts) {
+        window.CBAccounts.importJSON(usersRes.content);
+      }
+    } catch (err) {
+      console.warn('GitHub sync failed:', err.message);
+    }
+  }
+
+  async function savePosts(posts) {
+    store.set('custom_posts', posts);
+    if (window.CBGitHubStore && window.CBGitHubStore.hasConfig()) {
+      try {
+        await window.CBGitHubStore.putFile('data/posts.json', JSON.stringify(posts, null, 2), 'Update posts');
+      } catch (err) {
+        console.warn('Failed to sync posts to GitHub:', err.message);
+      }
+    }
+  }
+
   async function main() {
     initTheme();
     updateYear();
@@ -1462,8 +2441,11 @@
     setupSearch();
     applySkillStyles();
     initSetupWizard();
+    initAccountOverlay();
 
     registerSkills();
+
+    await syncFromGitHub();
 
     const customPosts = store.get('custom_posts', null);
     if (Array.isArray(customPosts) && customPosts.length) {
@@ -1473,6 +2455,12 @@
     }
 
     state.profile = window.CBProfile.get();
+    if (state.profile) {
+      if (window.CBAccounts) {
+        window.CBAccounts.ensureAdminFromProfile(state.profile);
+      }
+    }
+
     if (!state.profile) {
       showSetupOverlay();
     } else {

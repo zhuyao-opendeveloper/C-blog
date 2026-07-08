@@ -1,14 +1,25 @@
 [
   {
     "id": "hello-c-blog",
-    "title": "欢迎来到 C Blog — 一个现代化的开源博客",
-    "excerpt": "C Blog 是一个现代化、轻量、支持 AI 与 Skill 插件的个人博客。本文介绍它的设计理念与核心能力。",
+    "title": "你好，世界 — 这是我的第一篇博文",
+    "excerpt": "很高兴在这里遇见你。这是我在 C Blog 上写下的第一篇文章，聊聊这个博客的过去、现在与未来。",
+    "date": "2026-06-28",
+    "author": "C",
+    "avatar": "C",
+    "tags": ["随笔", "公告", "开篇"],
+    "readTime": 5,
+    "content": "# 你好，世界 👋\n\n很高兴在这里遇见你。\n\n这是我在 **C Blog** 上写下的第一篇文章，也是这个数字花园正式开张的日子。\n\n## 🌱 为什么做这个博客\n\n我一直想拥有一个属于自己的角落 —— 不需要受限于任何平台的规则，不被推荐算法左右节奏，只有我和我写下的文字。\n\n于是有了 C Blog：\n\n- **纯前端**：没有后端，没有数据库，代码透明，一切尽在掌控\n- **AI 原生**：让 AI 成为写作助手，而不是噱头\n- **Skill 可扩展**：功能像搭积木一样加\n- **开源可自部署**：推到 GitHub Pages 就能永久在线\n\n## ✨ 你可以做什么\n\n在这里，我计划分享：\n\n- 💻 **技术笔记**：前端、后端、工具链，踩过的坑都想写下来\n- 💡 **思考碎片**：对产品、设计、独立开发的观察\n- 🛠️ **造物过程**：C Blog 本身就是一个不断迭代的作品\n- 📚 **读书笔记**：把读到的好书、好文整理成自己的语言\n\n## 💬 留下你的声音\n\n博客底部有**评论区**，欢迎来坐。你的每一条评论都会让这个角落更热闹一些。\n\n如果你也在写自己的博客，欢迎互相串门 🔗\n\n## 🚀 接下来\n\n- 完善后台编辑器\n- 接入更多 AI 能力（摘要、润色、翻译）\n- 增加更多 Skill 插件\n- 打磨每一个交互细节\n\n感谢你读到这里。愿我们在这里相遇、交流、共同成长。\n\n> *「写博客不是为了被所有人看见，而是为了在某一天，有人恰好需要这段文字。」*"
+  },
+  {
+    "id": "hello-c-blog-old",
+    "title": "C Blog 的设计理念与核心能力",
+    "excerpt": "C Blog 是一个现代化、轻量、支持 AI 与 Skill 插件的个人博客。",
     "date": "2026-06-20",
     "author": "C",
     "avatar": "C",
-    "tags": ["公告", "介绍", "开源"],
+    "tags": ["介绍", "归档"],
     "readTime": 4,
-    "content": "# 欢迎来到 C Blog\n\n**C Blog** 是一个专为开发者与创作者设计的现代化个人博客。\n\n## ✨ 核心特性\n\n- 🎨 **现代化 UI**：玻璃拟态、渐变、暗黑模式、响应式\n- 🤖 **AI 原生集成**：内置对话助手、文章润色、摘要生成\n- 🧩 **Skill 插件系统**：一键扩展功能\n- 🔍 **全文搜索**：支持文章与标签快速检索\n- 🏷️ **标签云**：多维分类与聚合\n- 📝 **Markdown 原生**：代码高亮、表格、数学公式\n- 🚀 **GitHub Pages**：开箱即用的部署\n- 💖 **纯前端**：无需后端即可运行\n\n## 🚀 快速开始\n\n```bash\n# 克隆仓库\ngit clone https://github.com/yourname/c-blog.git\ncd c-blog\n\n# 直接用浏览器打开 index.html\n# 或使用静态服务器\npython -m http.server 8080\n```\n\n## 📁 项目结构\n\n```\nc-blog/\n├── index.html          # 主页面\n├── styles.css          # 样式\n├── app.js              # 应用逻辑\n├── data/posts.js       # 文章数据\n├── skills/             # Skill 插件\n└── assets/icons/       # 自定义 SVG 图标\n```\n\n## 🧠 接入 AI\n\n打开导航栏的 **AI** 页面，填入你的 API Key 即可开始对话。所有密钥仅保存在本地。\n\n> 💡 安全提示：C Blog 所有 AI 请求均从浏览器直接发起，密钥不会上传到任何第三方服务器。\n\n## 📝 结语\n\nC Blog 由 ❤️ 打造，欢迎在 GitHub 上 Star 与贡献。"
+    "content": "# C Blog 的设计理念\n\n## 核心特性\n\n- 🎨 现代化 UI：玻璃拟态、渐变、暗黑模式、响应式\n- 🤖 AI 原生集成：内置对话助手、文章润色、摘要生成\n- 🧩 Skill 插件系统：一键扩展功能\n- 🔍 全文搜索\n- 🏷️ 标签云\n- 📝 Markdown 原生\n- 🚀 GitHub Pages 一键部署\n\n## 快速开始\n\n```bash\ngit clone https://github.com/zhuyao-opendeveloper/C-blog.git\ncd C-blog\npython -m http.server 8080\n```\n\n## 项目结构\n\n```\nC-blog/\n├── index.html\n├── styles.css\n├── app.js\n├── data/posts.js\n├── skills/\n└── assets/icons/\n```"
   },
   {
     "id": "build-modern-ui",

@@ -163,8 +163,44 @@
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>
       </symbol>
 
+      <symbol id="i-comment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </symbol>
+
+      <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+      </symbol>
+
+      <symbol id="i-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </symbol>
+
       <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>
+      </symbol>
+
+      <symbol id="i-user-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/>
+      </symbol>
+
+      <symbol id="i-log-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/>
+      </symbol>
+
+      <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </symbol>
+
+      <symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2 4 5v7c0 5 3.5 9 8 10 4.5-1 8-5 8-10V5z"/><path d="m9 12 2 2 4-4"/>
+      </symbol>
+
+      <symbol id="i-ban" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/>
+      </symbol>
+
+      <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="15" r="4"/><path d="m10.85 12.15 8.15-8.15"/><path d="m18 5 3 3"/><path d="m15 8 3 3"/>
       </symbol>
     </defs>
   </svg>
@@ -204,10 +240,13 @@
         <a class="icon-btn" href="https://github.com/" target="_blank" rel="noreferrer" title="GitHub">
           <svg><use href="#i-github"/></svg>
         </a>
-        <a class="user-chip" id="userChip" href="#/admin" data-route title="管理员后台">
+        <a class="user-chip" id="userChip" href="#/account" data-route title="我的账号">
           <span class="user-avatar" id="userAvatar">C</span>
-          <span class="user-name" id="userName">C</span>
+          <span class="user-name" id="userName">游客</span>
         </a>
+        <button class="icon-btn" id="loginBtn" title="登录" style="display:none;">
+          <svg><use href="#i-log-in"/></svg>
+        </button>
         <button class="icon-btn menu-toggle" id="menuToggle" title="菜单">
           <svg><use href="#i-menu"/></svg>
         </button>
@@ -425,10 +464,79 @@
     </div>
   </div>
 
+  <div id="accountOverlay" class="setup-overlay" style="display:none">
+    <div class="setup-dialog login-dialog">
+      <div class="setup-logo">
+        <svg class="brand-icon"><use href="#i-logo"/></svg>
+      </div>
+      <div class="account-tabs">
+        <button class="account-tab active" data-tab="login">登录</button>
+        <button class="account-tab" data-tab="register">注册</button>
+      </div>
+
+      <div class="account-panel" data-panel="login">
+        <h2>欢迎回来 👋</h2>
+        <p class="setup-sub">登录你的账号，开启更多功能</p>
+        <div class="form-row">
+          <label>用户名</label>
+          <input type="text" id="loginUsername" placeholder="用户名" autocomplete="username" />
+        </div>
+        <div class="form-row">
+          <label>密码</label>
+          <input type="password" id="loginUserPassword" placeholder="密码" autocomplete="current-password" />
+        </div>
+        <div class="form-row" id="loginUserError" style="display:none;color:var(--danger);font-size:13px;"></div>
+        <div class="setup-actions">
+          <button class="btn btn-primary" id="loginUserSubmit" style="flex:1;">
+            <svg><use href="#i-log-in"/></svg> 登录
+          </button>
+        </div>
+      </div>
+
+      <div class="account-panel" data-panel="register" style="display:none">
+        <h2>创建账号 ✨</h2>
+        <p class="setup-sub">加入 C Blog，记录你的思考</p>
+        <div class="form-row">
+          <label>用户名 <span class="required">*</span></label>
+          <input type="text" id="regUsername" placeholder="3-24 位字母/数字/中文" autocomplete="off" />
+        </div>
+        <div class="form-row">
+          <label>昵称</label>
+          <input type="text" id="regNickname" placeholder="显示昵称（可修改）" />
+        </div>
+        <div class="form-row">
+          <label>邮箱</label>
+          <input type="email" id="regEmail" placeholder="可选" autocomplete="email" />
+        </div>
+        <div class="form-row">
+          <label>密码 <span class="required">*</span></label>
+          <input type="password" id="regPassword" placeholder="至少 6 位" autocomplete="new-password" />
+        </div>
+        <div class="form-row">
+          <label>确认密码 <span class="required">*</span></label>
+          <input type="password" id="regPasswordConfirm" placeholder="再次输入" autocomplete="new-password" />
+        </div>
+        <div class="form-row" id="regError" style="display:none;color:var(--danger);font-size:13px;"></div>
+        <div class="setup-actions">
+          <button class="btn btn-primary" id="regSubmit" style="flex:1;">
+            <svg><use href="#i-user-plus"/></svg> 注册
+          </button>
+        </div>
+      </div>
+
+      <button class="icon-btn account-close" id="accountClose" title="关闭">
+        <svg><use href="#i-close"/></svg>
+      </button>
+    </div>
+  </div>
+
   <script src="data/posts.js"></script>
   <script src="skills/index.js"></script>
   <script src="skills/ai.js"></script>
   <script src="skills/profile.js"></script>
+  <script src="skills/comments.js"></script>
+  <script src="skills/accounts.js"></script>
+  <script src="skills/github-store.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

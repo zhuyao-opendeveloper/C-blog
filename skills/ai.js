@@ -4,19 +4,31 @@ window.CB_AI = {
     set provider(v) { localStorage.setItem('cb_ai_provider', v); },
     get apiKey() { return localStorage.getItem('cb_ai_key') || ''; },
     set apiKey(v) { localStorage.setItem('cb_ai_key', v); },
-    get model() { return localStorage.getItem('cb_ai_model') || 'openrouter/claude-3.5-sonnet'; },
+    get model() {
+      const p = this.provider;
+      if (p === 'custom') {
+        return localStorage.getItem('cb_ai_custom_model') || '';
+      }
+      return localStorage.getItem('cb_ai_model') || 'openrouter/claude-3.5-sonnet';
+    },
     set model(v) { localStorage.setItem('cb_ai_model', v); },
+    get customModel() { return localStorage.getItem('cb_ai_custom_model') || ''; },
+    set customModel(v) { localStorage.setItem('cb_ai_custom_model', v); },
     get baseUrl() {
+      const stored = localStorage.getItem('cb_ai_base');
+      if (stored) return stored;
       const p = this.provider;
       if (p === 'openrouter') return 'https://openrouter.ai/api/v1';
       if (p === 'deepseek') return 'https://api.deepseek.com';
       if (p === 'qwen') return 'https://dashscope.aliyuncs.com/compatible-mode';
-      return localStorage.getItem('cb_ai_base') || '';
+      return '';
     }
   },
 
   async chat(messages, opts = {}) {
     if (!this.config.apiKey) throw new Error('请先配置 AI API Key');
+    if (!this.config.model) throw new Error('请先填写模型名称');
+    if (!this.config.baseUrl) throw new Error('请先填写 Base URL');
     const url = this.config.baseUrl + '/chat/completions';
     const res = await fetch(url, {
       method: 'POST',

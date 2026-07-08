@@ -43,7 +43,18 @@ window.CBProfile = (function () {
     const cur = getProfile() || { ...DEFAULT, createdAt: Date.now() };
     const next = { ...cur, ...patch };
     localStorage.setItem(KEY, JSON.stringify(next));
+    syncToGitHub(next);
     return next;
+  }
+
+  async function syncToGitHub(profile) {
+    if (window.CBGitHubStore && window.CBGitHubStore.hasConfig()) {
+      try {
+        await window.CBGitHubStore.putFile('data/profile.json', JSON.stringify(profile, null, 2), 'Update profile');
+      } catch (err) {
+        console.warn('Failed to sync profile to GitHub:', err.message);
+      }
+    }
   }
 
   function updateProfile(patch) {
