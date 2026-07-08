@@ -68,7 +68,7 @@ window.CBGitHubStore = (function () {
   async function getFile(path, opts = {}) {
     try {
       const data = await apiRequest('GET', path);
-      const content = data.content ? atob(data.content.replace(/\n/g, '')) : '';
+      const content = data.content ? decodeURIComponent(escape(atob(data.content.replace(/\n/g, '')))) : '';
       if (opts.cache !== false) {
         localStorage.setItem(getCacheKey(path), JSON.stringify({
           content,
