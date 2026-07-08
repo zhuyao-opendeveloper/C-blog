@@ -8,6 +8,24 @@ window.CBGitHubStore = (function () {
     return parts.join('');
   }
 
+  function decodeBase64(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  function encodeBase64(text) {
+    const bytes = new TextEncoder('utf-8').encode(text);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
   function initConfig() {
     if (!localStorage.getItem(REPO_KEY)) {
       localStorage.setItem(REPO_KEY, 'zhuyao-opendeveloper/C-blog');
@@ -68,7 +86,7 @@ window.CBGitHubStore = (function () {
   async function getFile(path, opts = {}) {
     try {
       const data = await apiRequest('GET', path);
-      const content = data.content ? decodeURIComponent(escape(atob(data.content.replace(/\n/g, '')))) : '';
+      const content = data.content ? decodeBase64(data.content.replace(/\n/g, '')) : '';
       if (opts.cache !== false) {
         localStorage.setItem(getCacheKey(path), JSON.stringify({
           content,
@@ -93,7 +111,7 @@ window.CBGitHubStore = (function () {
     const { sha } = await getFile(path);
     const body = {
       message,
-      content: btoa(unescape(encodeURIComponent(content))),
+      content: encodeBase64(content),
       branch: 'main'
     };
     if (sha) body.sha = sha;
