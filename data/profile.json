@@ -1,12 +1,22 @@
 {
   "username": "ZhuYao",
-  "nickname": "ZhuYao",
-  "title": "",
-  "bio": "",
-  "email": "",
   "avatarType": "initials",
   "avatarInitials": "ZY",
+  "avatarEmoji": "",
+  "avatarImage": "",
+  "title": "",
+  "bio": "",
+  "blogName": "C Blog",
+  "blogDesc": "一个现代化、开源、支持 AI 与 Skill 的个人博客",
+  "githubUrl": "",
+  "twitterUrl": "",
+  "websiteUrl": "",
   "passwordHash": "",
+  "enableStats": true,
+  "enableAI": true,
+  "createdAt": 1782486525000,
+  "nickname": "ZhuYao",
+  "email": "",
   "socialLinks": [],
   "settings": {
     "theme": "dark",
@@ -15,6 +25,5 @@
     "showSocialLinks": true,
     "autoSave": true
   },
-  "createdAt": 1782486525000,
   "updatedAt": 1782747766000
 }
