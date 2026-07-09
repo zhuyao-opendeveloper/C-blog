@@ -1,14 +1,20 @@
-[{
-  "id": "admin",
-  "username": "ZhuYao",
-  "nickname": "ZhuYao",
-  "email": "",
-  "avatarType": "initials",
-  "avatarInitials": "ZY",
-  "passwordHash": "",
-  "role": "admin",
-  "status": "active",
-  "createdAt": 1782747766000,
-  "updatedAt": 1782747766000,
-  "lastLoginAt": 0
-}]
+[
+  {
+    "id": "u-mrdd1ge5-hfl06iwu",
+    "username": "zhuyao",
+    "nickname": "ZhuYao",
+    "email": "",
+    "avatar": "",
+    "avatarType": "initials",
+    "avatarInitials": "ZY",
+    "avatarEmoji": "",
+    "avatarImage": "",
+    "passwordHash": "",
+    "role": "admin",
+    "status": "active",
+    "bio": "",
+    "createdAt": 1783592696381,
+    "updatedAt": 1783592696381,
+    "lastLoginAt": 0
+  }
+]
